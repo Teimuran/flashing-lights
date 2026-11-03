@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    container_name: flashing-lights-bot
+    restart: always
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - FLAT_API_TOKEN=${FLAT_API_TOKEN}
+      # Стучимся напрямую в peeps-postgres по имени контейнера
+      - DB_URL=jdbc:postgresql://peeps-postgres:5432/party_db
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+    networks:
+      - peeps-net
+
+networks:
+  peeps-net:
+    external: true
+    name: app_peeps-net
