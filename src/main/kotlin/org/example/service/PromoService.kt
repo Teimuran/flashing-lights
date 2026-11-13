@@ -15,7 +15,8 @@ import org.springframework.transaction.annotation.Transactional
 class PromoService(
     private val flatClient: FlatPromoClient,
     private val claimRepository: PromoClaimRepository,
-    private val eventRepository: EventRepository
+    private val eventRepository: EventRepository,
+    private val eventStateService: EventStateService
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -38,13 +39,22 @@ class PromoService(
             return Pair(existing.promoCode, event)
         }
 
+        // 2. ПРОВЕРКА ВРЕМЕНИ: если билета нет и ивент начался — отшиваем на вход
+        if (eventStateService.isEventStarted()) {
+            throw IllegalStateException(
+                "Мероприятие уже началось, бесплатная выдача закрыта! ⏳\n\n" +
+                        "Но ты еще можешь залететь на тусу: билеты продаются прямо на входе у админов. Ждем тебя! 🎫"
+            )
+        }
+
+        // 3. Проверка номера телефона
         if (claimRepository.existsByEventIdAndPhone(event.id, normalizedPhone)) {
             throw IllegalStateException("На этот номер уже был получен билет на данную тусовку!")
         }
 
         log.info("Создаем персональный инвайт во FLAT для юзера $telegramId ($firstName)...")
 
-        // 2. Стучимся во FLAT API и создаем инвайт в списке
+        // 4. Стучимся во FLAT API и создаем инвайт в списке
         val title = username?.let { "@$it ($firstName)" } ?: "$firstName ($normalizedPhone)"
         val response = flatClient.createInvite(
             listId = event.flatListId,
@@ -70,14 +80,14 @@ class PromoService(
         // Прямая ссылка на электронный билет с QR-кодом!
         val ticketUrl = "https://flat.audio/personal/$inviteCode"
 
-        // 3. Сохраняем ссылку в БД
+        // 5. Сохраняем ссылку в БД
         claimRepository.save(
             PromoClaimEntity(
                 event = event,
                 telegramId = telegramId,
                 phone = normalizedPhone,
                 username = username,
-                promoCode = ticketUrl // сохраняем ссылку вместо промокода!
+                promoCode = ticketUrl
             )
         )
 

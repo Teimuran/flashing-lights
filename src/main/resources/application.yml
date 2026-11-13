@@ -35,3 +35,6 @@ flat:
   api:
     base-url: "https://flat.audio/api"
     token: ${FLAT_API_TOKEN}
+event:
+  time: "22:00"
+  zone-id: "Asia/Krasnoyarsk"
