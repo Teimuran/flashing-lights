@@ -36,13 +36,11 @@ class PartyTelegramBot(
         val chatId = message.chatId.toString()
         val userId = message.from.id
 
-        // 1. Команда /start -> Шлем афишу и приветствие
         if (message.hasText() && message.text.startsWith("/start")) {
             sendWelcomeWithPoster(chatId)
             return
         }
 
-        // 2. Получение контакта по кнопке
         if (message.hasContact()) {
             val contact = message.contact
 
@@ -51,7 +49,6 @@ class PartyTelegramBot(
                 return
             }
 
-            // ПРОВЕРКА ПОДПИСКИ НА КАНАЛ
             if (!checkChannelSubscription(userId)) {
                 sendSubscribeRequired(chatId)
                 return
@@ -72,25 +69,17 @@ class PartyTelegramBot(
         }
     }
 
-    /**
-     * Проверяет статус юзера в канале через Telegram API
-     */
     private fun checkChannelSubscription(userId: Long): Boolean {
         return try {
             val member = execute(GetChatMember(channelUsername, userId))
             val status = member.status
-            // member, creator, administrator считаются активной подпиской
             status in listOf("member", "creator", "administrator")
         } catch (e: Exception) {
             log.error("Не удалось проверить подписку юзера $userId на канал $channelUsername: ${e.message}")
-            // Если бот не админ или канал недоступен — лучше пропустить, чтобы не блокировать чела наглухо
             true
         }
     }
 
-    /**
-     * Отправка афиши с текстом
-     */
     private fun sendWelcomeWithPoster(chatId: String) {
         val caption = """
             Здарова! 🔥
@@ -111,7 +100,6 @@ class PartyTelegramBot(
         }
 
         try {
-            // Пробуем отправить с картинкой из ресурсов
             val posterResource = ClassPathResource("afisha fl.jpg")
             if (posterResource.exists()) {
                 val sendPhoto = SendPhoto().apply {
@@ -128,16 +116,13 @@ class PartyTelegramBot(
             log.warn("Не удалось отправить картинку афиши, отправляем обычный текст: ${e.message}")
         }
 
-        // Фоллбэк: если картинки нет — шлем просто текст
         execute(SendMessage(chatId, caption).apply {
             parseMode = "Markdown"
             replyMarkup = keyboard
         })
     }
 
-    /**
-     * Сообщение, если чел не подписан
-     */
+
     private fun sendSubscribeRequired(chatId: String) {
         val text = """
             ⚠️ *Ты ещё не подписан на наш канал!*

@@ -32,14 +32,12 @@ class PromoService(
 
         val normalizedPhone = phone.replace(Regex("[^0-9]"), "")
 
-        // 1. Если чел уже получал билет — отдаем его старую готовую ссылку
         val existing = claimRepository.findByEventIdAndTelegramId(event.id!!, telegramId)
         if (existing != null) {
             log.info("Юзер $telegramId уже получал билет ${existing.promoCode}, отдаем повторно")
             return Pair(existing.promoCode, event)
         }
 
-        // 2. ПРОВЕРКА ВРЕМЕНИ: если билета нет и ивент начался — отшиваем на вход
         if (eventStateService.isEventStarted()) {
             throw IllegalStateException(
                 "Мероприятие уже началось, бесплатная выдача закрыта! ⏳\n\n" +
@@ -50,14 +48,12 @@ class PromoService(
             )
         }
 
-        // 3. Проверка номера телефона
         if (claimRepository.existsByEventIdAndPhone(event.id, normalizedPhone)) {
             throw IllegalStateException("На этот номер уже был получен билет на данную тусовку!")
         }
 
         log.info("Создаем персональный инвайт во FLAT для юзера $telegramId ($firstName)...")
 
-        // 4. Стучимся во FLAT API и создаем инвайт в списке
         val title = username?.let { "@$it ($firstName)" } ?: "$firstName ($normalizedPhone)"
         val response = flatClient.createInvite(
             listId = event.flatListId,
@@ -80,10 +76,8 @@ class PromoService(
         val inviteCode = inviteItem.inviteCode ?: inviteItem.inviteId
         ?: throw IllegalStateException("FLAT не вернул код инвайта!")
 
-        // Прямая ссылка на электронный билет с QR-кодом!
         val ticketUrl = "https://flat.audio/personal/$inviteCode"
 
-        // 5. Сохраняем ссылку в БД
         claimRepository.save(
             PromoClaimEntity(
                 event = event,
